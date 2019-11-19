@@ -1,0 +1,127 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   get_next_line.c                                    :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: gleonett <gleonett@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2018/12/04 14:27:45 by gleonett          #+#    #+#             */
+/*   Updated: 2018/12/12 11:29:48 by gleonett         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
+#include "get_next_line.h"
+
+static char			*ft_straddsizeb(char *s, size_t n)
+{
+	char			*new;
+	size_t			size;
+
+	if (!s)
+		return (NULL);
+	size = ft_strlen(s);
+	new = ft_strnew(size + n);
+	if (!new)
+		return (NULL);
+	new = ft_strncpy(new, s, size);
+	free(s);
+	s = NULL;
+	return (new);
+}
+
+static t_gnl		*ft_glstnew2(const int fd)
+{
+	t_gnl			*new_elem;
+
+	new_elem = (t_gnl *)malloc(sizeof(t_gnl));
+	if (!new_elem)
+		return (NULL);
+	new_elem->fd = fd;
+	if (!(new_elem->str = ft_strnew(BUFF_SIZE)))
+		return (NULL);
+	new_elem->i = 0;
+	new_elem->next = NULL;
+	return (new_elem);
+}
+
+static	int			ft_read_line(char **line, t_gnl *storage)
+{
+	int a;
+
+	while (0 < (a = read(storage->fd, storage->str, BUFF_SIZE)))
+	{
+		storage->str[a] = '\0';
+		storage->i = 0;
+		while (storage->str[storage->i] != '\n' && storage->str[storage->i])
+			storage->i++;
+		if (storage->str[storage->i] != '\n' && storage->i != BUFF_SIZE &&
+				storage->str[storage->i - 1] != '\n')
+			return (-1);
+		if ((*line = ft_straddsizeb(*line, storage->i)) == NULL)
+			return (-1);
+		*line = ft_strncat(*line, storage->str, storage->i);
+		if (storage->str[storage->i] == '\n')
+		{
+			storage->i++;
+			break ;
+		}
+		ft_bzero(storage->str, BUFF_SIZE + 1);
+	}
+	if (a <= 0 && **line == '\0')
+		return (a);
+	return (1);
+}
+
+static int			check_first(char **line, t_gnl *storage)
+{
+	int	j;
+
+	if ((*line = ft_strnew(BUFF_SIZE)) == NULL)
+		return (-1);
+	if (storage->i > 0)
+	{
+		j = storage->i;
+		while (storage->str[storage->i] != '\n' && storage->str[storage->i])
+			storage->i++;
+		if (storage->str[storage->i] != '\n' && storage->i != BUFF_SIZE &&
+				storage->str[storage->i - 1] != '\n')
+			return (-1);
+		*line = ft_strncpy(*line, storage->str + j, storage->i - j);
+		if (storage->str[storage->i] == '\n')
+		{
+			storage->i++;
+			return (1);
+		}
+		storage->i = 0;
+	}
+	return (ft_read_line(line, storage));
+}
+
+int					get_next_line(const int fd, char **line)
+{
+	static t_gnl	*storage;
+	t_gnl			*start;
+	int				gg;
+
+	if (fd < 0 || !line)
+		return (-1);
+	if (storage == NULL)
+	{
+		if ((storage = ft_glstnew2(fd)) == NULL)
+			return (-1);
+		return (check_first(line, storage));
+	}
+	start = storage;
+	while (storage->fd != fd && storage->next && storage)
+		storage = storage->next;
+	if (storage->fd == fd)
+		gg = check_first(line, storage);
+	else
+	{
+		storage->next = ft_glstnew2(fd);
+		storage = storage->next;
+		gg = check_first(line, storage);
+	}
+	storage = start;
+	return (gg);
+}
